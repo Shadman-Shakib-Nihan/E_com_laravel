@@ -26,6 +26,18 @@ test('authenticated users can visit the product page', function () {
         );
 });
 
+test('authenticated users can visit the storefront page', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('product.show'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('products/show')
+            ->has('products')
+        );
+});
+
 test('authenticated users can create a product', function () {
     Storage::fake('public');
 

@@ -12,6 +12,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('product/{product}/edit', [ProductController::class, 'edit'])->name('product.edit');
     Route::put('product/{product}', [ProductController::class, 'update'])->name('product.update');
     Route::delete('product/{product}', [ProductController::class, 'destroy'])->name('product.destroy');
+    Route::get('product/show', [ProductController::class, 'show'])->name('product.show');
+
 
     Route::inertia('/about', 'About')->name('about');
 });

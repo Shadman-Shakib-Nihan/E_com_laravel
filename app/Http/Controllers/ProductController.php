@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ProductGender;
 use App\Models\ProductImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +42,55 @@ class ProductController extends Controller
 
         return Inertia::render('products/index', [
             'products' => $products,
+        ]);
+    }
+
+    /**
+     * Display the storefront catalog.
+     */
+    public function show(): Response
+    {
+        $products = Product::with(['category', 'sizes', 'genders', 'primaryImage'])
+            ->latest()
+            ->get()
+            ->map(function (Product $product): array {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'description' => $product->description,
+                    'base_pricing' => (float) $product->base_pricing,
+                    'price' => (float) $product->discountedPrice(),
+                    'discount' => $product->discount,
+                    'discount_type' => $product->discount_type,
+                    'stock' => $product->stock,
+                    'categoryId' => $product->category_id,
+                    'category' => $product->category?->name,
+                    'sizes' => $product->sizes->pluck('size')->all(),
+                    'gender' => $product->genders->first()?->gender,
+                    'image' => $product->primaryImage?->url,
+                    'createdAt' => $product->created_at?->toISOString(),
+                ];
+            });
+
+        $categories = ProductCategory::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+            $genders = ProductGender::query()
+            ->select('gender')
+            ->distinct()
+            ->orderBy('gender')
+            ->get()
+            ->map(fn (ProductGender $gender): array => [
+                'id' => $gender->gender,
+                'name' => $gender->gender,
+            ])
+            ->values();
+
+        return Inertia::render('products/show', [
+            'products' => $products,
+            'categories' => $categories,
+            'genders' => $genders,
         ]);
     }
 

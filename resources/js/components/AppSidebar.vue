@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Building2, Info, LayoutGrid, ShoppingCart } from '@lucide/vue';
+import { Building2, Info, LayoutGrid, ShoppingCart,ShoppingBag } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import { about, dashboard } from '@/routes';
 import { create as productCreate } from '@/routes/product';
+import { show as productShow } from '@/routes/product';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -24,6 +25,13 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
+
+    {
+        title: 'Buy Product',
+        href: productShow(),
+        icon: ShoppingBag,
+    },
+
     {
         title: 'Add Product',
         href: productCreate(),
