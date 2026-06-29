@@ -24,7 +24,11 @@ const isFormValid = computed(() => {
     return (
         form.name.trim() !== '' &&
         form.basePricing !== '' &&
-        form.stock !== ''
+        form.stock !== '' &&
+        form.description !== '' &&
+        form.gender !== '' &&
+        form.sizes.length > 0 &&
+        form.category !== ''
     );
 });
 
@@ -174,7 +178,7 @@ function addProduct() {
                     <!-- Description -->
                     <div class="mb-5">
                         <label class="mb-1.5 block text-sm font-medium text-gray-700">
-                            Description Product
+                            Description Product <span class="text-red-400">*</span>
                         </label>
                         <textarea
                             v-model="form.description"
@@ -188,7 +192,7 @@ function addProduct() {
                     <div class="grid grid-cols-2 gap-6">
                         <!-- Size -->
                         <div>
-                            <label class="mb-0.5 block text-sm font-medium text-gray-700">Size</label>
+                            <label class="mb-0.5 block text-sm font-medium text-gray-700">Size <span class="text-red-400">*</span></label>
                             <p class="mb-2 text-xs text-gray-400">Pick Available Size</p>
                             <div class="flex flex-wrap gap-2">
                                 <button
@@ -211,7 +215,7 @@ function addProduct() {
 
                         <!-- Gender -->
                         <div>
-                            <label class="mb-0.5 block text-sm font-medium text-gray-700">Gender</label>
+                            <label class="mb-0.5 block text-sm font-medium text-gray-700">Gender <span class="text-red-400">*</span></label>
                             <p class="mb-2 text-xs text-gray-400">Pick Available Gender</p>
                             <div class="flex flex-wrap gap-4">
                                 <label
@@ -419,7 +423,7 @@ function addProduct() {
                 <!-- Category -->
                 <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                     <h2 class="mb-4 text-base font-bold text-gray-900">Category</h2>
-                    <label class="mb-1.5 block text-sm font-medium text-gray-700">Product Category</label>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700">Product Category <span class="text-red-400">*</span></label>
                     <div class="relative mb-4">
                         <select
                             v-model="form.category"
