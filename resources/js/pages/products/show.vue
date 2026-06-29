@@ -1,161 +1,3 @@
-<template>
-  <div class="shop-page">
-    <header class="shop-header">
-      <div class="logo">GRAVITY<br />CREATION</div>
-
-      <div class="header-actions">
-        <button class="icon-btn" aria-label="Search">🔍</button>
-        <button class="cart-toggle" @click="cartOpen = true">
-          Cart <span class="cart-pill">{{ cartCount }}</span>
-        </button>
-      </div>
-    </header>
-
-    <section class="shop-hero">
-      <h1>Shop</h1>
-
-      <div class="filter-pills">
-        <button
-          v-for="cat in categoriesWithAll"
-          :key="cat.id"
-          class="pill"
-          :class="{ 'pill-active': selectedCategory === String(cat.id) }"
-          @click="selectCategory(cat.id)"
-        >
-          {{ cat.name }}
-        </button>
-      </div>
-
-      <div v-if="genders.length" class="filter-pills filter-pills-secondary">
-        <button
-          class="pill pill-outline"
-          :class="{ 'pill-active': selectedGender === 'all' }"
-          @click="selectedGender = 'all'"
-        >
-          All Genders
-        </button>
-        <button
-          v-for="g in genders"
-          :key="g.id"
-          class="pill pill-outline"
-          :class="{ 'pill-active': selectedGender === String(g.id) }"
-          @click="selectedGender = String(g.id)"
-        >
-          {{ g.name }}
-        </button>
-      </div>
-    </section>
-
-    <div class="toolbar">
-      <span class="result-count">{{ filteredProducts.length }} products</span>
-      <label class="sort-control">
-        Sort by
-        <select v-model="sortBy">
-          <option value="default">Featured</option>
-          <option value="price-asc">Price: Low to High</option>
-          <option value="price-desc">Price: High to Low</option>
-          <option value="newest">Newest</option>
-          <option value="name-asc">Name: A–Z</option>
-        </select>
-      </label>
-    </div>
-
-    <div v-if="filteredProducts.length === 0" class="state-msg">
-      No products match these filters.
-    </div>
-
-    <div v-else class="product-grid">
-      <div v-for="(product, idx) in filteredProducts" :key="product.id" class="product-card">
-        <div
-          class="product-image"
-          :style="{ background: idx % 2 === 0 ? '#faf6ec' : '#fbeeec' }"
-        >
-          <span v-if="product.gender" class="gender-badge">{{ product.gender }}</span>
-          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" />
-        </div>
-
-        <div class="product-info">
-          <h3 class="product-name">{{ product.name }}</h3>
-          <p v-if="product.description" class="product-description">{{ product.description }}</p>
-          <p class="product-price">
-            <template v-if="product.discount && product.base_pricing !== product.price">
-              <span class="original-price">$ {{ Number(product.base_pricing).toFixed(2) }}</span>
-              <span class="discounted-price">$ {{ Number(product.price).toFixed(2) }} USD</span>
-            </template>
-            <template v-else>
-              $ {{ Number(product.price).toFixed(2) }} USD
-            </template>
-          </p>
-
-          <div v-if="product.sizes && product.sizes.length" class="size-row">
-            <span class="size-label">Size</span>
-            <div class="size-options">
-              <button
-                v-for="size in product.sizes"
-                :key="size"
-                class="size-btn"
-                :class="{ 'size-selected': selectedSizes[product.id] === size }"
-                @click="selectSize(product.id, size)"
-              >
-                {{ size }}
-              </button>
-            </div>
-          </div>
-
-          <div class="qty-cart-row">
-            <div class="qty-stepper">
-              <button class="qty-btn" @click="decrementQty(product.id)" aria-label="Decrease quantity">−</button>
-              <span class="qty-value">{{ quantities[product.id] || 1 }}</span>
-              <button class="qty-btn" @click="incrementQty(product.id)" aria-label="Increase quantity">+</button>
-            </div>
-            <button class="add-cart-btn" @click="addToCart(product)">Add to cart</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <transition name="fade">
-      <div v-if="cartOpen" class="cart-overlay" @click.self="cartOpen = false">
-        <transition name="slide">
-          <aside v-if="cartOpen" class="cart-drawer">
-            <div class="cart-header">
-              <h2>Your cart ({{ cartCount }})</h2>
-              <button class="icon-btn" @click="cartOpen = false" aria-label="Close cart">×</button>
-            </div>
-
-            <div v-if="cart.length === 0" class="cart-empty">Your cart is empty.</div>
-
-            <div v-else class="cart-items">
-              <div v-for="item in cart" :key="item.key" class="cart-item">
-                <img v-if="item.image" :src="item.image" :alt="item.name" class="cart-item-img" />
-                <div class="cart-item-info">
-                  <h4>{{ item.name }}</h4>
-                  <p v-if="item.size" class="cart-item-size">Size: {{ item.size }}</p>
-                  <p class="cart-item-price">$ {{ (item.price * item.qty).toFixed(2) }} USD</p>
-                  <div class="qty-stepper qty-stepper-small">
-                    <button class="qty-btn" @click="decrementCartQty(item.key)">−</button>
-                    <span class="qty-value">{{ item.qty }}</span>
-                    <button class="qty-btn" @click="incrementCartQty(item.key)">+</button>
-                  </div>
-                </div>
-                <button class="remove-btn" @click="removeFromCart(item.key)" aria-label="Remove item">🗑</button>
-              </div>
-            </div>
-
-            <div v-if="cart.length" class="cart-footer">
-              <div class="subtotal-row">
-                <span>Subtotal</span>
-                <span>$ {{ cartSubtotal.toFixed(2) }} USD</span>
-              </div>
-              <button class="checkout-btn">Checkout</button>
-            </div>
-          </aside>
-        </transition>
-      </div>
-    </transition>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 
@@ -304,480 +146,196 @@ const cartCount = computed(() => cart.value.reduce((sum, item) => sum + item.qty
 const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.price * item.qty, 0))
 </script>
 
+<template>
+  <div class="mx-auto max-w-[1280px] px-8 pb-16 font-sans text-[#14151a]">
+    <!-- ============ Header ============ -->
+    <header class="flex items-center justify-between py-7">
+      <div class="text-lg font-black uppercase leading-[1.05] tracking-tight">NIHAN<br />CREATION</div>
+
+      <div class="flex items-center gap-4">
+        <button class="text-gray-700 hover:text-gray-900" aria-label="Search">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
+          </svg>
+        </button>
+        <button class="flex items-center gap-2 text-sm font-semibold" @click="cartOpen = true">
+          Cart
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[11px] text-white">{{ cartCount }}</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ============ Hero / Filters ============ -->
+    <section class="rounded-xl bg-gray-100 p-10 text-center">
+      <h1 class="mb-6 text-4xl font-extrabold">Shop</h1>
+
+      <div class="flex flex-wrap justify-center gap-2.5">
+        <button
+          v-for="cat in categoriesWithAll"
+          :key="cat.id"
+          class="rounded-full border px-5 py-2.5 text-[13px] font-semibold transition"
+          :class="
+            selectedCategory === String(cat.id)
+              ? 'border-gray-900 bg-gray-900 text-white'
+              : 'border-white bg-white text-[#14151a] hover:border-gray-900'
+          "
+          @click="selectCategory(cat.id)"
+        >
+          {{ cat.name }}
+        </button>
+      </div>
+
+      <div v-if="genders.length" class="mt-3 flex flex-wrap justify-center gap-2.5">
+        <button
+          class="rounded-full border px-5 py-2.5 text-[13px] font-semibold transition"
+          :class="
+            selectedGender === 'all'
+              ? 'border-gray-900 bg-gray-900 text-white'
+              : 'border-gray-300 bg-transparent text-[#14151a] hover:border-gray-900'
+          "
+          @click="selectedGender = 'all'"
+        >
+          All Genders
+        </button>
+        <button
+          v-for="g in genders"
+          :key="g.id"
+          class="rounded-full border px-5 py-2.5 text-[13px] font-semibold transition"
+          :class="
+            selectedGender === String(g.id)
+              ? 'border-gray-900 bg-gray-900 text-white'
+              : 'border-gray-300 bg-transparent text-[#14151a] hover:border-gray-900'
+          "
+          @click="selectedGender = String(g.id)"
+        >
+          {{ g.name }}
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ Toolbar ============ -->
+    <div class="flex items-center justify-between py-6 text-sm text-gray-500">
+      <span>{{ filteredProducts.length }} products</span>
+      <label class="flex items-center gap-2">
+        Sort by
+        <select v-model="sortBy" class="rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700">
+          <option value="default">Featured</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="newest">Newest</option>
+          <option value="name-asc">Name: A–Z</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- ============ Empty state ============ -->
+    <div v-if="filteredProducts.length === 0" class="py-16 text-center text-[15px] text-gray-500">
+      No products match these filters.
+    </div>
+
+    <!-- ============ Product grid ============ -->
+    <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div v-for="(product, idx) in filteredProducts" :key="product.id" class="flex flex-col">
+        <div
+          class="relative flex aspect-square items-center justify-center overflow-hidden rounded-[5px]"
+          :class="idx % 2 === 0 ? 'bg-[#faf6ec]' : 'bg-[#fbeeec]'"
+        >
+          <span v-if="product.gender" class="absolute left-2.5 top-2.5 rounded-full bg-gray-900/85 px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
+            {{ product.gender }}
+          </span>
+          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" class="max-h-[75%] max-w-[75%] object-contain" />
+        </div>
+
+        <div class="pt-3">
+          <h3 class="mb-1 text-[15px] font-semibold">{{ product.name }}</h3>
+          <p v-if="product.description" class="mb-2 line-clamp-2 text-xs leading-snug text-gray-500">{{ product.description }}</p>
+          <p class="mb-2.5 text-sm text-gray-600">
+            <template v-if="product.discount && product.base_pricing !== product.price">
+              <span class="mr-1.5 text-gray-400 line-through">$ {{ Number(product.base_pricing).toFixed(2) }}</span>
+              <span class="font-semibold text-[#b12704]">$ {{ Number(product.price).toFixed(2) }} USD</span>
+            </template>
+            <template v-else> $ {{ Number(product.price).toFixed(2) }} USD </template>
+          </p>
+
+          <div v-if="product.sizes && product.sizes.length" class="mb-3 flex items-center gap-2.5">
+            <span class="shrink-0 text-xs text-gray-500">Size</span>
+            <div class="flex gap-1.5">
+              <button
+                v-for="size in product.sizes"
+                :key="size"
+                class="h-7 w-7 rounded-md border text-xs font-semibold transition"
+                :class="
+                  selectedSizes[product.id] === size
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-900'
+                "
+                @click="selectSize(product.id, size)"
+              >
+                {{ size }}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <div class="flex items-center overflow-hidden rounded-lg border border-gray-200">
+              <button class="h-8 w-7 bg-gray-100 text-[15px] hover:bg-gray-200" aria-label="Decrease quantity" @click="decrementQty(product.id)">−</button>
+              <span class="w-7 text-center text-[13px] font-semibold">{{ quantities[product.id] || 1 }}</span>
+              <button class="h-8 w-7 bg-gray-100 text-[15px] hover:bg-gray-200" aria-label="Increase quantity" @click="incrementQty(product.id)">+</button>
+            </div>
+            <button class="flex-1 rounded-lg bg-gray-900 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-gray-800" @click="addToCart(product)">
+              Add to cart
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Cart drawer ============ -->
+    <transition name="fade">
+      <div v-if="cartOpen" class="fixed inset-0 z-50 flex justify-end bg-black/40" @click.self="cartOpen = false">
+        <transition name="slide">
+          <aside v-if="cartOpen" class="flex h-full w-[380px] max-w-full flex-col bg-white p-6">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold">Your cart ({{ cartCount }})</h2>
+              <button class="text-xl text-gray-500 hover:text-gray-900" aria-label="Close cart" @click="cartOpen = false">×</button>
+            </div>
+
+            <div v-if="cart.length === 0" class="mt-16 text-center text-gray-500">Your cart is empty.</div>
+
+            <div v-else class="flex-1 space-y-4 overflow-y-auto">
+              <div v-for="item in cart" :key="item.key" class="flex items-start gap-3 border-b border-gray-100 pb-4">
+                <img v-if="item.image" :src="item.image" :alt="item.name" class="h-16 w-16 rounded-lg bg-gray-100 object-contain" />
+                <div class="flex-1">
+                  <h4 class="mb-1 text-sm">{{ item.name }}</h4>
+                  <p v-if="item.size" class="mb-1.5 text-xs text-gray-500">Size: {{ item.size }}</p>
+                  <p class="mb-1.5 text-xs text-gray-500">$ {{ (item.price * item.qty).toFixed(2) }} USD</p>
+                  <div class="flex items-center overflow-hidden rounded-lg border border-gray-200">
+                    <button class="h-6 w-[22px] text-xs hover:bg-gray-50" @click="decrementCartQty(item.key)">−</button>
+                    <span class="w-[22px] text-center text-xs font-semibold">{{ item.qty }}</span>
+                    <button class="h-6 w-[22px] text-xs hover:bg-gray-50" @click="incrementCartQty(item.key)">+</button>
+                  </div>
+                </div>
+                <button class="text-sm" aria-label="Remove item" @click="removeFromCart(item.key)">🗑</button>
+              </div>
+            </div>
+
+            <div v-if="cart.length" class="mt-4 border-t border-gray-100 pt-4">
+              <div class="mb-3 flex justify-between font-semibold">
+                <span>Subtotal</span>
+                <span>$ {{ cartSubtotal.toFixed(2) }} USD</span>
+              </div>
+              <button class="w-full rounded-lg bg-gray-900 py-3 text-sm font-semibold text-white hover:bg-gray-800">Checkout</button>
+            </div>
+          </aside>
+        </transition>
+      </div>
+    </transition>
+  </div>
+</template>
+
 <style scoped>
-* {
-  box-sizing: border-box;
-}
-
-.shop-page {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  color: #14151a;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 32px 64px;
-}
-
-/* ---------- Header ---------- */
-.shop-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28px 0;
-}
-
-.logo {
-  font-family: 'Arial Black', Arial, sans-serif;
-  font-weight: 900;
-  font-size: 18px;
-  line-height: 1.05;
-  letter-spacing: -0.5px;
-  text-transform: uppercase;
-}
-
-.main-nav {
-  display: flex;
-  gap: 28px;
-}
-
-.nav-link {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: #14151a;
-  text-decoration: none;
-}
-
-.nav-link.active {
-  text-decoration: underline;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.cart-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  color: #14151a;
-}
-
-.cart-pill {
-  background: #14151a;
-  color: #fff;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-}
-
-/* ---------- Hero / filters ---------- */
-.shop-hero {
-  background: #f1f1f1;
-  border-radius: 12px;
-  padding: 40px 32px;
-  text-align: center;
-}
-
-.shop-hero h1 {
-  font-size: 40px;
-  font-weight: 800;
-  margin: 0 0 24px;
-}
-
-.filter-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-.filter-pills-secondary {
-  margin-top: 12px;
-}
-
-.pill {
-  background: #fff;
-  border: 1px solid #fff;
-  border-radius: 999px;
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  color: #14151a;
-  transition: all 0.15s ease;
-}
-
-.pill-outline {
-  background: transparent;
-  border: 1px solid #ccc;
-}
-
-.pill:hover {
-  border-color: #14151a;
-}
-
-.pill-active {
-  background: #14151a;
-  color: #fff;
-  border-color: #14151a;
-}
-
-/* ---------- Toolbar ---------- */
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px 4px;
-  font-size: 14px;
-  color: #555;
-}
-
-.sort-control select {
-  margin-left: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-}
-
-.state-msg {
-  text-align: center;
-  padding: 60px 0;
-  color: #777;
-  font-size: 15px;
-}
-
-.state-error {
-  color: #b3261e;
-}
-
-/* ---------- Product grid ---------- */
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-}
-
-@media (max-width: 1024px) {
-  .product-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  .product-grid {
-    grid-template-columns: 1fr;
-  }
-  .shop-header {
-    flex-direction: column;
-    gap: 16px;
-  }
-  .main-nav {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-}
-
-.product-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.product-image {
-  position: relative;
-  border-radius: 10px;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.product-image img {
-  max-width: 75%;
-  max-height: 75%;
-  object-fit: contain;
-}
-
-.gender-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(20, 21, 26, 0.85);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 9px;
-  border-radius: 999px;
-  text-transform: uppercase;
-}
-
-.product-info {
-  padding-top: 12px;
-}
-
-.product-name {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0 0 4px;
-}
-
-.product-price {
-  font-size: 14px;
-  color: #666;
-  margin: 0 0 10px;
-}
-
-.product-description {
-  font-size: 12px;
-  color: #888;
-  margin: 0 0 8px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.original-price {
-  text-decoration: line-through;
-  color: #aaa;
-  margin-right: 6px;
-}
-
-.discounted-price {
-  color: #b12704;
-  font-weight: 600;
-}
-
-/* sizes */
-.size-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.size-label {
-  font-size: 12px;
-  color: #888;
-  flex-shrink: 0;
-}
-
-.size-options {
-  display: flex;
-  gap: 6px;
-}
-
-.size-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.size-btn:hover {
-  border-color: #14151a;
-}
-
-.size-selected {
-  background: #14151a;
-  color: #fff;
-  border-color: #14151a;
-}
-
-/* quantity + add to cart */
-.qty-cart-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.qty-stepper {
-  display: flex;
-  align-items: center;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.qty-btn {
-  background: #f5f5f5;
-  border: none;
-  width: 28px;
-  height: 32px;
-  font-size: 15px;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.qty-value {
-  width: 28px;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.add-cart-btn {
-  flex: 1;
-  background: #14151a;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.add-cart-btn:hover {
-  background: #2a2b32;
-}
-
-/* ---------- Cart drawer ---------- */
-.cart-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  justify-content: flex-end;
-  z-index: 50;
-}
-
-.cart-drawer {
-  width: 380px;
-  max-width: 100%;
-  background: #fff;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-}
-
-.cart-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.cart-header h2 {
-  font-size: 18px;
-  margin: 0;
-}
-
-.cart-empty {
-  color: #888;
-  text-align: center;
-  margin-top: 60px;
-}
-
-.cart-items {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cart-item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 16px;
-}
-
-.cart-item-img {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  background: #f5f5f5;
-  border-radius: 8px;
-}
-
-.cart-item-info {
-  flex: 1;
-}
-
-.cart-item-info h4 {
-  font-size: 14px;
-  margin: 0 0 4px;
-}
-
-.cart-item-size,
-.cart-item-price {
-  font-size: 12px;
-  color: #777;
-  margin: 0 0 6px;
-}
-
-.qty-stepper-small .qty-btn {
-  width: 22px;
-  height: 24px;
-  font-size: 12px;
-}
-
-.qty-stepper-small .qty-value {
-  width: 22px;
-  font-size: 12px;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.cart-footer {
-  border-top: 1px solid #eee;
-  padding-top: 16px;
-}
-
-.subtotal-row {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.checkout-btn {
-  width: 100%;
-  background: #14151a;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* transitions */
+/* Vue's <transition> needs real CSS classes for enter/leave — these two
+   small rules are the only thing Tailwind utility classes can't express. */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
