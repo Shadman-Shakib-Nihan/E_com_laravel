@@ -14,7 +14,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('product/{product}', [ProductController::class, 'destroy'])->name('product.destroy');
     Route::get('product/show', [ProductController::class, 'show'])->name('product.show');
 
-
     Route::inertia('/about', 'About')->name('about');
 });
 

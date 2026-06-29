@@ -547,6 +547,28 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
   margin: 0 0 10px;
 }
 
+.product-description {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.original-price {
+  text-decoration: line-through;
+  color: #aaa;
+  margin-right: 6px;
+}
+
+.discounted-price {
+  color: #b12704;
+  font-weight: 600;
+}
+
 /* sizes */
 .size-row {
   display: flex;
