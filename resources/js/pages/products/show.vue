@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import ProductQuickViewModal from '@/components/ProductQuickViewModal.vue'
 
@@ -100,31 +100,23 @@ const categoriesWithAll = computed(() => [
 
 /**
  * ------------------------------------------------------------------
- * Infinite scroll
+ * True Infinite Scrolling — products are appended in groups of 8
  * ------------------------------------------------------------------
- * allProducts accumulates every page fetched so far; this is what the
- * grid renders. Category/gender filters now run on the server (see
- * ProductController@show), so changing a filter triggers a *fresh*
- * paginated request (replacing allProducts) rather than filtering the
- * client-side list — this keeps results correct even after scrolling
- * several pages in.
+ * A single reactive array (`allProducts`) holds every loaded product
+ * and only grows. The IntersectionObserver at the bottom fetches the
+ * next page when the user gets within 80 px of the end. Previously
+ * loaded products never disappear — scroll is naturally preserved
+ * because the DOM only grows, never shrinks.
  * ------------------------------------------------------------------
  */
 
 const allProducts = ref<ProductItem[]>([...props.products.data])
-const currentPage = ref(props.products.current_page)
-const lastPage = ref(props.products.last_page)
-const loadingMore = ref(false)
 
-watch(
-  () => props.products,
-  (next) => {
-    allProducts.value = [...next.data]
-    currentPage.value = next.current_page
-    lastPage.value = next.last_page
-    loadingMore.value = false
-  },
-)
+const currentPage = ref(1)
+
+const isLoadingMore = ref(false)
+
+const hasMore = computed(() => currentPage.value < props.products.last_page)
 
 function buildFilterParams() {
   const params: Record<string, string> = {}
@@ -133,26 +125,40 @@ function buildFilterParams() {
   return params
 }
 
-function loadMore() {
-  if (loadingMore.value || currentPage.value >= lastPage.value) return
-  loadingMore.value = true
+async function loadMore() {
+  if (isLoadingMore.value || !hasMore.value) return
+  const nextPage = currentPage.value + 1
+  isLoadingMore.value = true
 
-  router.reload({
-    data: { ...buildFilterParams(), page: currentPage.value + 1 },
-    only: ['products'],
-    preserveState: true,
-    preserveScroll: true,
-    onSuccess: (page) => {
-      const fresh = page.props.products as unknown as PaginatedProducts
-      allProducts.value.push(...fresh.data)
-      currentPage.value = fresh.current_page
-      lastPage.value = fresh.last_page
-      loadingMore.value = false
-    },
-    onError: () => {
-      loadingMore.value = false
-    },
-  })
+  const startTime = Date.now()
+  const MIN_SKELETON_MS = 400
+
+  try {
+    const data = await new Promise<ProductItem[]>((resolve, reject) => {
+      router.reload({
+        data: { ...buildFilterParams(), page: nextPage },
+        only: ['products'],
+        onSuccess: (response) => {
+          const fresh = response.props.products as unknown as PaginatedProducts
+          resolve(fresh.data)
+        },
+        onError: () => reject(new Error('Failed to load products')),
+      })
+    })
+
+    // Ensure skeleton is visible long enough to feel smooth (avoid flash)
+    const elapsed = Date.now() - startTime
+    if (elapsed < MIN_SKELETON_MS) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_SKELETON_MS - elapsed))
+    }
+
+    const existingIds = new Set(allProducts.value.map((p) => p.id))
+    const newItems = data.filter((item) => !existingIds.has(item.id))
+    allProducts.value = [...allProducts.value, ...newItems]
+    currentPage.value = nextPage
+  } finally {
+    isLoadingMore.value = false
+  }
 }
 
 function applyFilters() {
@@ -161,9 +167,12 @@ function applyFilters() {
     buildFilterParams(),
     {
       only: ['products', 'filters'],
-      preserveState: true,
       preserveScroll: true,
-      replace: true,
+      onSuccess: (page) => {
+        const fresh = page.props.products as unknown as PaginatedProducts
+        allProducts.value = [...fresh.data]
+        currentPage.value = 1
+      },
     },
   )
 }
@@ -178,30 +187,29 @@ function selectGender(id: string) {
   applyFilters()
 }
 
-// Sentinel element at the bottom of the grid — IntersectionObserver fires
-// loadMore() when it scrolls into view.
-const sentinel = ref<HTMLElement | null>(null)
-let observer: IntersectionObserver | null = null
+// Single bottom sentinel triggers loadMore when the user approaches
+// the end of the loaded content. isLoadingMore acts as the request
+// guard so a fast scroll never fires duplicate fetches.
+const bottomSentinel = ref<HTMLElement | null>(null)
+let bottomObserver: IntersectionObserver | null = null
 
 onMounted(() => {
-  observer = new IntersectionObserver(
+  bottomObserver = new IntersectionObserver(
     (entries) => {
       if (entries[0].isIntersecting) loadMore()
     },
-    { rootMargin: '400px' },
+    { rootMargin: '80px' },
   )
-  if (sentinel.value) observer.observe(sentinel.value)
+  if (bottomSentinel.value) bottomObserver.observe(bottomSentinel.value)
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
+  bottomObserver?.disconnect()
 })
 
 /**
- * Sorting still runs client-side over whatever has been loaded so far,
- * since "sort the entire catalog" would need server-side sorting too —
- * wire sortBy into applyFilters()/the controller's orderBy if you want
- * sorting to apply across the full dataset rather than loaded pages.
+ * Sorting runs over every loaded product so the entire accumulated
+ * catalog is re-ordered when the user picks a different sort option.
  */
 const filteredProducts = computed(() => {
   const list = [...allProducts.value]
@@ -281,7 +289,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
 </script>
 
 <template>
-  <div class="mx-auto  px-8 pb-16 font-sans text-[#14151a]">
+    <div class="mx-auto max-w-[1280px] px-8 pb-16 font-sans text-[#14151a]">
     <!-- ============ Header ============ -->
     <header class="flex items-center justify-between py-7">
       <div class="text-lg font-black uppercase leading-[1.05] tracking-tight">NIHAN<br />CREATION</div>
@@ -349,7 +357,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
 
     <!-- ============ Toolbar ============ -->
     <div class="flex items-center justify-between py-6 text-sm text-gray-500">
-      <span>{{ filteredProducts.length }} products loaded</span>
+      <span>{{ filteredProducts.length }} product{{ filteredProducts.length === 1 ? '' : 's' }} loaded</span>
       <label class="flex items-center gap-2">
         Sort by
         <select v-model="sortBy" class="rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700">
@@ -363,12 +371,16 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
     </div>
 
     <!-- ============ Empty state ============ -->
-    <div v-if="filteredProducts.length === 0" class="py-16 text-center text-[15px] text-gray-500">
+    <div v-if="filteredProducts.length === 0 && !isLoadingMore" class="py-16 text-center text-[15px] text-gray-500">
       No products match these filters.
     </div>
 
-    <!-- ============ Product grid ============ -->
-    <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    <TransitionGroup
+      v-else
+      tag="div"
+      name="card"
+      class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+    >
       <div v-for="(product, idx) in filteredProducts" :key="product.id" class="flex flex-col">
         <div
           class="group relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-[5px]"
@@ -378,7 +390,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
           <span v-if="product.gender" class="absolute left-2.5 top-2.5 z-10 rounded-full bg-gray-900/85 px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
             {{ product.gender }}
           </span>
-          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" class="max-h-[75%] max-w-[75%] object-contain transition duration-300 group-hover:scale-105" />
+          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" class="product-image max-h-[75%] max-w-[75%] object-contain transition duration-300 group-hover:scale-105" />
           <div class="absolute inset-0 flex items-end justify-center pb-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <span class="rounded-full bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-800 shadow-sm backdrop-blur-sm">
               Quick View
@@ -428,13 +440,34 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
           </div>
         </div>
       </div>
+    </TransitionGroup>
+
+    <!-- Bottom sentinel -->
+    <div ref="bottomSentinel" class="h-2 w-full"></div>
+
+    <!-- Skeleton loading grid (shown while fetching more products) -->
+    <div
+      v-if="isLoadingMore"
+      class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      <div v-for="n in 8" :key="'skeleton-' + n" class="flex flex-col">
+        <div class="aspect-square rounded-[5px] bg-gray-200/70 animate-pulse"></div>
+        <div class="pt-3 space-y-2.5">
+          <div class="h-4 w-3/4 rounded bg-gray-200/70 animate-pulse"></div>
+          <div class="h-3 w-1/2 rounded bg-gray-200/70 animate-pulse"></div>
+          <div class="flex gap-1.5">
+            <div v-for="s in 4" :key="s" class="h-7 w-7 rounded-md bg-gray-200/70 animate-pulse"></div>
+          </div>
+          <div class="flex gap-2.5">
+            <div class="h-8 w-20 rounded-lg bg-gray-200/70 animate-pulse"></div>
+            <div class="h-8 flex-1 rounded-lg bg-gray-200/70 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Infinite scroll sentinel: observed by IntersectionObserver, triggers loadMore() -->
-    <div ref="sentinel" class="h-1 w-full"></div>
-    <div v-if="loadingMore" class="py-8 text-center text-sm text-gray-500">Loading more products…</div>
-    <div v-else-if="currentPage >= lastPage && allProducts.length" class="py-8 text-center text-xs text-gray-400">
-      You've reached the end.
+    <div v-if="!hasMore && filteredProducts.length > 0" class="py-8 text-center text-xs text-gray-400">
+      You've viewed all products.
     </div>
 
     <!-- ============ Cart drawer ============ -->
@@ -512,5 +545,38 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
+}
+
+/* TransitionGroup: new products fade & slide in when appended */
+.card-enter-active {
+  animation: card-fade-in 0.35s ease both;
+}
+.card-move {
+  transition: transform 0.3s ease;
+}
+
+@keyframes card-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade-in for lazy-loaded images */
+.product-image {
+  animation: image-fade-in 0.3s ease both;
+}
+
+@keyframes image-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 </style>

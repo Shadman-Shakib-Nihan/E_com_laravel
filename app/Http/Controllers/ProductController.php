@@ -63,7 +63,7 @@ class ProductController extends Controller
                 $query->whereHas('genders', fn ($q) => $q->where('gender', $request->string('gender')));
             })
             ->latest()
-            ->paginate(12)
+            ->paginate(8)
             ->withQueryString()
             ->through(function (Product $product): array {
                 return [

@@ -89,10 +89,30 @@ const inStock = computed(() => {
   return (props.product?.stock ?? 0) > 0
 })
 
+function preloadImage(src: string): void {
+  const link = document.createElement('link')
+  link.rel = 'preload'
+  link.as = 'image'
+  link.href = src
+  document.head.appendChild(link)
+}
+
+function preloadAdjacent(index: number): void {
+  const urls: string[] = []
+  const prevIdx = (index - 1 + gallery.value.length) % gallery.value.length
+  const nextIdx = (index + 1) % gallery.value.length
+  const prev = gallery.value[prevIdx]?.image
+  const next = gallery.value[nextIdx]?.image
+  if (prev) urls.push(prev)
+  if (next) urls.push(next)
+  urls.forEach(preloadImage)
+}
+
 function selectImage(index: number): void {
   if (index === currentIndex.value) return
   resetZoom()
   imageLoaded.value = false
+  preloadAdjacent(index)
   currentIndex.value = index
 }
 
@@ -100,14 +120,18 @@ function prevImage(): void {
   if (gallery.value.length <= 1) return
   resetZoom()
   imageLoaded.value = false
-  currentIndex.value = (currentIndex.value - 1 + gallery.value.length) % gallery.value.length
+  const next = (currentIndex.value - 1 + gallery.value.length) % gallery.value.length
+  preloadAdjacent(next)
+  currentIndex.value = next
 }
 
 function nextImage(): void {
   if (gallery.value.length <= 1) return
   resetZoom()
   imageLoaded.value = false
-  currentIndex.value = (currentIndex.value + 1) % gallery.value.length
+  const next = (currentIndex.value + 1) % gallery.value.length
+  preloadAdjacent(next)
+  currentIndex.value = next
 }
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -210,27 +234,29 @@ onUnmounted(() => {
                 @touchend="handleTouchEnd"
                 @mouseenter="showZoomIcon = true"
               >
-                <!-- Loading -->
-                <div
-                  v-if="!imageLoaded"
-                  class="absolute inset-0 flex items-center justify-center"
-                >
-                  <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
-                </div>
-
-                <!-- Image -->
+                <!-- Image with load-driven fade-in (no blank gap between swaps) -->
                 <img
-                  v-show="currentImage"
-                  :src="currentImage ?? ''"
+                  v-if="currentImage"
+                  :key="currentIndex"
+                  :src="currentImage"
                   :alt="product.name"
-                  class="max-h-full max-w-full select-none object-contain transition-opacity duration-300"
-                  :class="{ 'opacity-0': !imageLoaded, 'opacity-100': imageLoaded }"
+                  class="max-h-full max-w-full select-none object-contain"
+                  :class="imageLoaded ? 'opacity-100' : 'opacity-0'"
                   :style="{
                     transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                    transition: 'opacity 0.3s ease',
                   }"
                   draggable="false"
                   @load="imageLoaded = true"
+                  @error="imageLoaded = true"
                 />
+                <!-- Loading placeholder while image loads -->
+                <div
+                  v-if="currentImage && !imageLoaded"
+                  class="pointer-events-none absolute inset-0 flex items-center justify-center"
+                >
+                  <div class="h-7 w-7 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
+                </div>
 
                 <!-- Zoom icon -->
                 <div
@@ -431,4 +457,6 @@ onUnmounted(() => {
   transform: scale(0.9);
   opacity: 0;
 }
+
+
 </style>
