@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductGender;
 use App\Models\ProductImage;
+use App\Models\ProductSize;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +20,25 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $products = Product::with(['category', 'sizes', 'genders', 'primaryImage'])
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $query->where('name', 'like', '%'.$request->string('search').'%');
+            })
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->whereHas('category', fn ($q) => $q->where('id', $request->string('category')));
+            })
+            ->when($request->filled('gender'), function ($query) use ($request) {
+                $query->whereHas('genders', fn ($q) => $q->where('gender', $request->string('gender')));
+            })
+            ->when($request->filled('size'), function ($query) use ($request) {
+                $query->whereHas('sizes', fn ($q) => $q->where('size', $request->string('size')));
+            })
             ->latest()
-            ->get()
-            ->map(function (Product $product): array {
+            ->paginate(8)
+            ->withQueryString()
+            ->through(function (Product $product): array {
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -40,8 +54,39 @@ class ProductController extends Controller
                 ];
             });
 
+        $categories = ProductCategory::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $genders = ProductGender::query()
+            ->select('gender')
+            ->distinct()
+            ->orderBy('gender')
+            ->get()
+            ->map(fn (ProductGender $gender): array => [
+                'id' => $gender->gender,
+                'name' => $gender->gender,
+            ])
+            ->values();
+
+        $sizes = ProductSize::query()
+            ->select('size')
+            ->distinct()
+            ->orderBy('size')
+            ->pluck('size')
+            ->all();
+
         return Inertia::render('products/index', [
             'products' => $products,
+            'categories' => $categories,
+            'genders' => $genders,
+            'sizes' => $sizes,
+            'filters' => [
+                'search' => $request->string('search')->toString() ?: null,
+                'category' => $request->string('category')->toString() ?: null,
+                'gender' => $request->string('gender')->toString() ?: null,
+                'size' => $request->string('size')->toString() ?: null,
+            ],
         ]);
     }
 
