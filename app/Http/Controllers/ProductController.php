@@ -50,7 +50,7 @@ class ProductController extends Controller
      */
     public function show(): Response
     {
-        $products = Product::with(['category', 'sizes', 'genders', 'primaryImage'])
+        $products = Product::with(['category', 'sizes', 'genders', 'primaryImage', 'images'])
             ->latest()
             ->get()
             ->map(function (Product $product): array {
@@ -68,6 +68,14 @@ class ProductController extends Controller
                     'sizes' => $product->sizes->pluck('size')->all(),
                     'gender' => $product->genders->first()?->gender,
                     'image' => $product->primaryImage?->url,
+                    'images' => $product->images
+                        ->sortBy('sort_order')
+                        ->values()
+                        ->map(fn ($img): array => [
+                            'id' => $img->id,
+                            'image' => $img->url,
+                        ])
+                        ->all(),
                     'createdAt' => $product->created_at?->toISOString(),
                 ];
             });

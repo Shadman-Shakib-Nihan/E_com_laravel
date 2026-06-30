@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import ProductQuickViewModal from '@/components/ProductQuickViewModal.vue'
+
+interface ProductImageItem {
+  id: number
+  image: string
+}
 
 interface ProductItem {
   id: number
@@ -11,6 +17,7 @@ interface ProductItem {
   discount_type: string | null
   stock: number
   image: string | null
+  images: ProductImageItem[]
   categoryId: number | null
   category: string | null
   sizes: string[]
@@ -51,6 +58,28 @@ const cart = ref<Array<{
   qty: number
 }>>([])
 const cartOpen = ref(false)
+
+const quickViewProduct = ref<ProductItem | null>(null)
+const quickViewOpen = ref(false)
+
+function openQuickView(product: ProductItem) {
+  quickViewProduct.value = product
+  quickViewOpen.value = true
+}
+
+function closeQuickView() {
+  quickViewOpen.value = false
+}
+
+const quickViewSelectedSize = computed(() => {
+  if (!quickViewProduct.value) return null
+  return selectedSizes[quickViewProduct.value.id] ?? null
+})
+
+const quickViewQuantity = computed(() => {
+  if (!quickViewProduct.value) return 1
+  return quantities[quickViewProduct.value.id] || 1
+})
 
 const categoriesWithAll = computed(() => [
   { id: 'all', name: 'All Products' },
@@ -237,13 +266,19 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
     <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
       <div v-for="(product, idx) in filteredProducts" :key="product.id" class="flex flex-col">
         <div
-          class="relative flex aspect-square items-center justify-center overflow-hidden rounded-[5px]"
+          class="group relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-[5px]"
           :class="idx % 2 === 0 ? 'bg-[#faf6ec]' : 'bg-[#fbeeec]'"
+          @click="openQuickView(product)"
         >
-          <span v-if="product.gender" class="absolute left-2.5 top-2.5 rounded-full bg-gray-900/85 px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
+          <span v-if="product.gender" class="absolute left-2.5 top-2.5 z-10 rounded-full bg-gray-900/85 px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
             {{ product.gender }}
           </span>
-          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" class="max-h-[75%] max-w-[75%] object-contain" />
+          <img v-if="product.image" :src="product.image" :alt="product.name" loading="lazy" class="max-h-[75%] max-w-[75%] object-contain transition duration-300 group-hover:scale-105" />
+          <div class="absolute inset-0 flex items-end justify-center pb-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span class="rounded-full bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-800 shadow-sm backdrop-blur-sm">
+              Quick View
+            </span>
+          </div>
         </div>
 
         <div class="pt-3">
@@ -330,6 +365,19 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
         </transition>
       </div>
     </transition>
+
+    <!-- ============ Quick View Modal ============ -->
+    <ProductQuickViewModal
+      :product="quickViewProduct"
+      :open="quickViewOpen"
+      :selected-size="quickViewSelectedSize"
+      :quantity="quickViewQuantity"
+      @close="closeQuickView"
+      @select-size="(size: string) => quickViewProduct && selectSize(quickViewProduct.id, size)"
+      @increment-qty="() => quickViewProduct && incrementQty(quickViewProduct.id)"
+      @decrement-qty="() => quickViewProduct && decrementQty(quickViewProduct.id)"
+      @add-to-cart="(product: ProductItem) => addToCart(product)"
+    />
   </div>
 </template>
 
