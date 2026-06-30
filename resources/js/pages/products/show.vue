@@ -176,7 +176,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1280px] px-8 pb-16 font-sans text-[#14151a]">
+  <div class="mx-auto  px-8 pb-16 font-sans text-[#14151a]">
     <!-- ============ Header ============ -->
     <header class="flex items-center justify-between py-7">
       <div class="text-lg font-black uppercase leading-[1.05] tracking-tight">NIHAN<br />CREATION</div>
