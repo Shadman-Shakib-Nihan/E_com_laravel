@@ -47,13 +47,25 @@ class ProductController extends Controller
 
     /**
      * Display the storefront catalog.
+     *
+     * Supports infinite-scroll pagination (?page=N) and optional
+     * ?category= / ?gender= filtering, both applied server-side so
+     * filtering always runs against the full dataset, not just
+     * whatever pages have been loaded into the browser so far.
      */
-    public function show(): Response
+    public function show(Request $request): Response
     {
         $products = Product::with(['category', 'sizes', 'genders', 'primaryImage', 'images'])
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->whereHas('category', fn ($q) => $q->where('id', $request->string('category')));
+            })
+            ->when($request->filled('gender'), function ($query) use ($request) {
+                $query->whereHas('genders', fn ($q) => $q->where('gender', $request->string('gender')));
+            })
             ->latest()
-            ->get()
-            ->map(function (Product $product): array {
+            ->paginate(12)
+            ->withQueryString()
+            ->through(function (Product $product): array {
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -99,6 +111,10 @@ class ProductController extends Controller
             'products' => $products,
             'categories' => $categories,
             'genders' => $genders,
+            'filters' => [
+                'category' => $request->string('category')->toString() ?: null,
+                'gender' => $request->string('gender')->toString() ?: null,
+            ],
         ]);
     }
 
