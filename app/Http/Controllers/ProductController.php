@@ -35,6 +35,12 @@ class ProductController extends Controller
             ->when($request->filled('size'), function ($query) use ($request) {
                 $query->whereHas('sizes', fn ($q) => $q->where('size', $request->string('size')));
             })
+            ->when($request->filled('min_price'), function ($query) use ($request) {
+                $query->where('base_pricing', '>=', $request->float('min_price'));
+            })
+            ->when($request->filled('max_price'), function ($query) use ($request) {
+                $query->where('base_pricing', '<=', $request->float('max_price'));
+            })
             ->latest()
             ->paginate(8)
             ->withQueryString()
@@ -86,6 +92,8 @@ class ProductController extends Controller
                 'category' => $request->string('category')->toString() ?: null,
                 'gender' => $request->string('gender')->toString() ?: null,
                 'size' => $request->string('size')->toString() ?: null,
+                'min_price' => $request->string('min_price')->toString() ?: null,
+                'max_price' => $request->string('max_price')->toString() ?: null,
             ],
         ]);
     }

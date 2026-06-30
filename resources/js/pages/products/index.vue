@@ -47,8 +47,13 @@ const props = defineProps<{
         category: string | null;
         gender: string | null;
         size: string | null;
+        min_price: string | null;
+        max_price: string | null;
     };
 }>();
+
+const selectedMinPrice = ref(props.filters?.min_price ?? '');
+const selectedMaxPrice = ref(props.filters?.max_price ?? '');
 
 defineOptions({
     layout: {
@@ -79,6 +84,8 @@ function applyFilters() {
     if (selectedCategory.value) params.category = selectedCategory.value
     if (selectedGender.value) params.gender = selectedGender.value
     if (selectedSize.value) params.size = selectedSize.value
+    if (selectedMinPrice.value) params.min_price = selectedMinPrice.value
+    if (selectedMaxPrice.value) params.max_price = selectedMaxPrice.value
 
     router.get(window.location.pathname, params, {
         preserveState: true,
@@ -92,6 +99,8 @@ function goToPage(page: number) {
     if (selectedCategory.value) params.category = selectedCategory.value
     if (selectedGender.value) params.gender = selectedGender.value
     if (selectedSize.value) params.size = selectedSize.value
+    if (selectedMinPrice.value) params.min_price = selectedMinPrice.value
+    if (selectedMaxPrice.value) params.max_price = selectedMaxPrice.value
 
     router.get(window.location.pathname, { ...params, page }, {
         preserveState: true,
@@ -195,6 +204,24 @@ function deleteProduct(id: number, name: string) {
                     <option value="">All Sizes</option>
                     <option v-for="s in sizes" :key="s" :value="s">{{ s }}</option>
                 </select>
+
+                <div class="flex items-center gap-2">
+                    <input
+                        v-model="selectedMinPrice"
+                        type="number"
+                        placeholder="Min Price"
+                        class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-gray-400"
+                        @input="onSearchInput"
+                    />
+                    <span class="text-muted-foreground">-</span>
+                    <input
+                        v-model="selectedMaxPrice"
+                        type="number"
+                        placeholder="Max Price"
+                        class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-gray-400"
+                        @input="onSearchInput"
+                    />
+                </div>
             </div>
 
             <div v-if="products.data.length === 0" class="py-12 text-center">
