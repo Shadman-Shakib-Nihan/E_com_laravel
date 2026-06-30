@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { router } from '@inertiajs/vue3'
 import ProductQuickViewModal from '@/components/ProductQuickViewModal.vue'
 
 interface ProductImageItem {
@@ -35,14 +36,25 @@ interface GenderItem {
   name: string
 }
 
+// Shape returned by Laravel's paginate(): { data, current_page, last_page, ... }
+interface PaginatedProducts {
+  data: ProductItem[]
+  current_page: number
+  last_page: number
+}
+
 const props = defineProps<{
-  products: ProductItem[]
+  products: PaginatedProducts
   categories: CategoryItem[]
   genders: GenderItem[]
+  filters?: {
+    category: string | null
+    gender: string | null
+  }
 }>()
 
-const selectedCategory = ref('all')
-const selectedGender = ref('all')
+const selectedCategory = ref(props.filters?.category ?? 'all')
+const selectedGender = ref(props.filters?.gender ?? 'all')
 const sortBy = ref('default')
 
 const selectedSizes = reactive<Record<number, string>>({})
@@ -86,16 +98,113 @@ const categoriesWithAll = computed(() => [
   ...props.categories.map((category) => ({ id: category.id, name: category.name })),
 ])
 
+/**
+ * ------------------------------------------------------------------
+ * Infinite scroll
+ * ------------------------------------------------------------------
+ * allProducts accumulates every page fetched so far; this is what the
+ * grid renders. Category/gender filters now run on the server (see
+ * ProductController@show), so changing a filter triggers a *fresh*
+ * paginated request (replacing allProducts) rather than filtering the
+ * client-side list — this keeps results correct even after scrolling
+ * several pages in.
+ * ------------------------------------------------------------------
+ */
+
+const allProducts = ref<ProductItem[]>([...props.products.data])
+const currentPage = ref(props.products.current_page)
+const lastPage = ref(props.products.last_page)
+const loadingMore = ref(false)
+
+watch(
+  () => props.products,
+  (next) => {
+    allProducts.value = [...next.data]
+    currentPage.value = next.current_page
+    lastPage.value = next.last_page
+    loadingMore.value = false
+  },
+)
+
+function buildFilterParams() {
+  const params: Record<string, string> = {}
+  if (selectedCategory.value !== 'all') params.category = selectedCategory.value
+  if (selectedGender.value !== 'all') params.gender = selectedGender.value
+  return params
+}
+
+function loadMore() {
+  if (loadingMore.value || currentPage.value >= lastPage.value) return
+  loadingMore.value = true
+
+  router.reload({
+    data: { ...buildFilterParams(), page: currentPage.value + 1 },
+    only: ['products'],
+    preserveState: true,
+    preserveScroll: true,
+    onSuccess: (page) => {
+      const fresh = page.props.products as unknown as PaginatedProducts
+      allProducts.value.push(...fresh.data)
+      currentPage.value = fresh.current_page
+      lastPage.value = fresh.last_page
+      loadingMore.value = false
+    },
+    onError: () => {
+      loadingMore.value = false
+    },
+  })
+}
+
+function applyFilters() {
+  router.get(
+    window.location.pathname,
+    buildFilterParams(),
+    {
+      only: ['products', 'filters'],
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+    },
+  )
+}
+
+function selectCategory(id: string | number) {
+  selectedCategory.value = String(id)
+  applyFilters()
+}
+
+function selectGender(id: string) {
+  selectedGender.value = id
+  applyFilters()
+}
+
+// Sentinel element at the bottom of the grid — IntersectionObserver fires
+// loadMore() when it scrolls into view.
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) loadMore()
+    },
+    { rootMargin: '400px' },
+  )
+  if (sentinel.value) observer.observe(sentinel.value)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+})
+
+/**
+ * Sorting still runs client-side over whatever has been loaded so far,
+ * since "sort the entire catalog" would need server-side sorting too —
+ * wire sortBy into applyFilters()/the controller's orderBy if you want
+ * sorting to apply across the full dataset rather than loaded pages.
+ */
 const filteredProducts = computed(() => {
-  let list = [...props.products]
-
-  if (selectedCategory.value !== 'all') {
-    list = list.filter((product) => product.categoryId === Number(selectedCategory.value) || product.category === selectedCategory.value)
-  }
-
-  if (selectedGender.value !== 'all') {
-    list = list.filter((product) => product.gender === selectedGender.value)
-  }
+  const list = [...allProducts.value]
 
   switch (sortBy.value) {
     case 'price-asc':
@@ -114,10 +223,6 @@ const filteredProducts = computed(() => {
 
   return list
 })
-
-function selectCategory(id: string | number) {
-  selectedCategory.value = String(id)
-}
 
 function selectSize(productId: number, size: string) {
   selectedSizes[productId] = size
@@ -222,7 +327,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
               ? 'border-gray-900 bg-gray-900 text-white'
               : 'border-gray-300 bg-transparent text-[#14151a] hover:border-gray-900'
           "
-          @click="selectedGender = 'all'"
+          @click="selectGender('all')"
         >
           All Genders
         </button>
@@ -235,7 +340,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
               ? 'border-gray-900 bg-gray-900 text-white'
               : 'border-gray-300 bg-transparent text-[#14151a] hover:border-gray-900'
           "
-          @click="selectedGender = String(g.id)"
+          @click="selectGender(String(g.id))"
         >
           {{ g.name }}
         </button>
@@ -244,7 +349,7 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
 
     <!-- ============ Toolbar ============ -->
     <div class="flex items-center justify-between py-6 text-sm text-gray-500">
-      <span>{{ filteredProducts.length }} products</span>
+      <span>{{ filteredProducts.length }} products loaded</span>
       <label class="flex items-center gap-2">
         Sort by
         <select v-model="sortBy" class="rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700">
@@ -323,6 +428,13 @@ const cartSubtotal = computed(() => cart.value.reduce((sum, item) => sum + item.
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Infinite scroll sentinel: observed by IntersectionObserver, triggers loadMore() -->
+    <div ref="sentinel" class="h-1 w-full"></div>
+    <div v-if="loadingMore" class="py-8 text-center text-sm text-gray-500">Loading more products…</div>
+    <div v-else-if="currentPage >= lastPage && allProducts.length" class="py-8 text-center text-xs text-gray-400">
+      You've reached the end.
     </div>
 
     <!-- ============ Cart drawer ============ -->
